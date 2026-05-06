@@ -1,80 +1,96 @@
-# Detonation VM for Stuxnet dynamic analysis.
+# Multi-machine detonation lab for Stuxnet dynamic analysis.
 #
-# - Windows 7 SP1 x86 (Stuxnet is 32-bit and targets older Windows).
-# - HOST-ONLY network only. No NAT. No bridged. No port forwarding.
-# - Snapshot before every run; restore between runs.
-# - Provisioning installs analyst tools but does NOT pull samples — you copy
-#   those in manually after taking a clean snapshot.
+#   detonator (192.168.56.10) — where the sample is run
+#   target    (192.168.56.11) — peer for SMB / Print Spooler / MS08-067 lateral
+#                               movement experiments
 #
-# REQUIRES: a Windows 7 base box you have rights to. Microsoft no longer ships
-# free dev VMs of Win7. Common options:
-#   - Build your own from an ISO + license you own (school often has MSDN AA).
-#   - Use a VirtualBox appliance you've imported and converted (`vagrant package`).
-# Update WIN7_BOX below to your local box name.
+# Both: Windows 7 SP1 x86, host-only network, snapshot-driven, no shared
+# folders / clipboard / USB. Provisioning installs analyst tools but does NOT
+# pull samples. Bring up, shut down, snapshot "clean-tools-installed", then
+# disable host-level routing to the host-only subnet (see
+# docs/04-network-isolation.md) before copying samples in.
+#
+# REQUIRES a Windows 7 base box you have rights to. Override with:
+#   export WIN7_BOX=win7-sp1-x86-analyst
+#
+# Bring up only one machine at a time as needed:
+#   vagrant up detonator
+#   vagrant up target
+# Or both: `vagrant up`. Halt with `vagrant halt`.
 
-WIN7_BOX = ENV.fetch("WIN7_BOX", "win7-sp1-x86-analyst")  # override with your box
+WIN7_BOX = ENV.fetch("WIN7_BOX", "win7-sp1-x86-analyst")
 
-Vagrant.configure("2") do |config|
-  config.vm.box = WIN7_BOX
-  config.vm.communicator = "winrm"
-  config.vm.guest = :windows
-  config.winrm.username = "analyst"
-  config.winrm.password = "analyst"
-  config.vm.boot_timeout = 600
+COMMON_PROVISION = <<-PS
+  Set-ExecutionPolicy Bypass -Scope Process -Force
+  [System.Net.ServicePointManager]::SecurityProtocol =
+    [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+  iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+  choco install -y --no-progress sysinternals wireshark 7zip notepadplusplus
+PS
 
-  # HARD REQUIREMENT: host-only network, no other interfaces.
-  # The IP below sits on a private subnet that does not route to the internet.
-  config.vm.network "private_network", ip: "192.168.56.10",
-                                        virtualbox__intnet: false,
-                                        auto_config: true
-  # Do NOT add `config.vm.network "forwarded_port"` or `public_network`.
+DETONATOR_PROVISION = COMMON_PROVISION + <<-PS
+  choco install -y --no-progress x64dbg.portable processhacker windbg python3
+  refreshenv
+  py -m pip install --no-warn-script-location flare-fakenet-ng flare-floss
+PS
 
-  config.vm.provider "virtualbox" do |vb|
-    vb.name   = "stuxnet-detonation"
+TARGET_PROVISION = COMMON_PROVISION + <<-PS
+  # Set up the target as a juicy lateral-movement victim.
+  Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False
+  # Enable file & printer sharing so SMB and Print Spooler are reachable.
+  Set-Service -Name LanmanServer  -StartupType Automatic
+  Set-Service -Name LanmanWorkstation -StartupType Automatic
+  Set-Service -Name Spooler       -StartupType Automatic
+  Start-Service LanmanServer, LanmanWorkstation, Spooler
+  # Create a writable share for credential/share-write propagation.
+  New-Item -Path C:\\Share -ItemType Directory -Force | Out-Null
+  New-SmbShare -Name "Share" -Path C:\\Share -FullAccess Everyone -ErrorAction SilentlyContinue
+  # Add a fake printer so the spooler exposes its RPC interface.
+  Add-PrinterPort -Name "FakePort" -PrinterHostAddress "127.0.0.1" -ErrorAction SilentlyContinue
+  Add-Printer -Name "FakePrinter" -DriverName "Microsoft XPS Document Writer" -PortName "FakePort" -ErrorAction SilentlyContinue
+  Set-Printer -Name "FakePrinter" -Shared $true -ShareName "FakePrinter" -ErrorAction SilentlyContinue
+  # Disable Defender so it doesn't yank the dropped file before you can see it.
+  Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
+PS
+
+def configure_common(vm_config, name, ip)
+  vm_config.vm.box = WIN7_BOX
+  vm_config.vm.communicator = "winrm"
+  vm_config.vm.guest = :windows
+  vm_config.winrm.username = "analyst"
+  vm_config.winrm.password = "analyst"
+  vm_config.vm.boot_timeout = 600
+  vm_config.vm.hostname = name
+  vm_config.vm.network "private_network", ip: ip,
+                                          virtualbox__intnet: false,
+                                          auto_config: true
+  vm_config.vm.synced_folder ".", "/vagrant", disabled: true
+
+  vm_config.vm.provider "virtualbox" do |vb|
+    vb.name   = "stuxnet-#{name}"
     vb.gui    = true
     vb.memory = 2048
     vb.cpus   = 2
-    # Disable clipboard / drag-drop / shared folders to reduce host exposure.
     vb.customize ["modifyvm", :id, "--clipboard-mode", "disabled"]
     vb.customize ["modifyvm", :id, "--draganddrop",   "disabled"]
     vb.customize ["modifyvm", :id, "--audio",         "none"]
     vb.customize ["modifyvm", :id, "--usb",           "off"]
     vb.customize ["modifyvm", :id, "--usbehci",       "off"]
     vb.customize ["modifyvm", :id, "--nictype1",      "82540EM"]
-    # Belt-and-suspenders: no second NIC.
     vb.customize ["modifyvm", :id, "--nic2",          "none"]
     vb.customize ["modifyvm", :id, "--nic3",          "none"]
     vb.customize ["modifyvm", :id, "--nic4",          "none"]
   end
+end
 
-  # Disable the default Vagrant shared folder. We do NOT want bidirectional
-  # filesystem access between host and a VM that will run live malware.
-  config.vm.synced_folder ".", "/vagrant", disabled: true
+Vagrant.configure("2") do |config|
+  config.vm.define "detonator", primary: true do |dt|
+    configure_common(dt, "detonator", "192.168.56.10")
+    dt.vm.provision "shell", inline: DETONATOR_PROVISION, privileged: true
+  end
 
-  # Provision analyst tools (NOT samples). Network must be reachable for this
-  # one-time bootstrap; do it BEFORE you ever copy a sample in. Take a clean
-  # snapshot after this completes.
-  config.vm.provision "shell", inline: <<-PS, privileged: true
-    Set-ExecutionPolicy Bypass -Scope Process -Force
-    [System.Net.ServicePointManager]::SecurityProtocol =
-      [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
-    iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-    choco install -y --no-progress `
-      sysinternals `
-      wireshark `
-      x64dbg.portable `
-      processhacker `
-      7zip `
-      notepadplusplus `
-      windbg
-    # FakeNet-NG for fake-internet, FLOSS for offline string deobf.
-    choco install -y --no-progress python3
-    refreshenv
-    py -m pip install --no-warn-script-location flare-fakenet-ng flare-floss
-  PS
-
-  # After provisioning, the VM is online for tool install. SHUT DOWN, take a
-  # snapshot called "clean-tools-installed", then DISABLE the host's outbound
-  # routing for this private_network in your hypervisor before bringing it
-  # back up to copy in the sample. See docs/04-network-isolation.md.
+  config.vm.define "target", autostart: false do |tg|
+    configure_common(tg, "target", "192.168.56.11")
+    tg.vm.provision "shell", inline: TARGET_PROVISION, privileged: true
+  end
 end

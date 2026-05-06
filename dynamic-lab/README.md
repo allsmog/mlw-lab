@@ -1,6 +1,22 @@
-# dynamic-lab — detonation VM
+# dynamic-lab — detonation VMs
 
-Windows 7 SP1 x86, host-only network, snapshot-driven.
+Two-VM setup, both Windows 7 SP1 x86 on a host-only network:
+
+- **detonator** (192.168.56.10) — where the sample runs.
+- **target**    (192.168.56.11) — peer for SMB / Print Spooler / MS08-067
+  propagation experiments. Has file/printer sharing enabled and a
+  writable `\\target\Share` for the share-write propagation path.
+
+Bring up only what you need:
+
+```bash
+vagrant up detonator         # solo run, no propagation
+vagrant up target            # add the lateral-movement target
+vagrant up                   # both
+```
+
+FakeNet-NG config for fake-internet during runs is in
+[`fakenet/`](fakenet/).
 
 ## Prereqs
 

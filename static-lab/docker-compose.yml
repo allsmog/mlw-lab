@@ -7,6 +7,9 @@ services:
       dockerfile: Dockerfile
     image: mlw-lab/static:latest
     container_name: mlw-lab-static
+    # Run as the host user so files written into analysis/ are owned by you,
+    # not by the container's analyst user. Falls back to 1000:1000 if unset.
+    user: "${UID:-1000}:${GID:-1000}"
     # Hardening:
     network_mode: none          # no egress, no DNS, no nothing
     cap_drop: [ALL]             # drop all Linux capabilities
@@ -15,6 +18,7 @@ services:
     read_only: false            # tools need /tmp and /work writable; samples are RO below
     tmpfs:
       - /tmp:size=512m,mode=1777
+      - /home/analyst:size=64m,mode=0777   # writable home for tool config
     # The interesting volumes:
     volumes:
       - ../samples:/work/samples:ro

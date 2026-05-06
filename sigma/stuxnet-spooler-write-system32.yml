@@ -1,0 +1,39 @@
+title: Print Spooler service writes an executable into system32
+id: c39f1f11-2fbf-4d53-95c2-c8f0d3b1a7e7
+status: experimental
+description: |
+  CVE-2010-2729: a remote, unauthenticated write to %WINDIR%\system32\
+  via the spooler RPC interface, followed by execution. Detects the
+  spooler process (spoolsv.exe) creating a new file under system32 with
+  an executable extension. Stuxnet uses this to drop a follow-on payload
+  on a printer-sharing peer.
+references:
+  - https://learn.microsoft.com/en-us/security-updates/securitybulletins/2010/ms10-061
+author: school project
+date: 2026/05/06
+logsource:
+  product: windows
+  service: sysmon
+  category: file_event
+detection:
+  selection:
+    Image|endswith: '\spoolsv.exe'
+    TargetFilename|contains: '\System32\'
+    TargetFilename|endswith:
+      - '.exe'
+      - '.dll'
+      - '.sys'
+      - '.mof'
+  filter_legitimate_driver_install:
+    TargetFilename|contains:
+      - '\spool\drivers\'
+      - '\PrinterPorts\'
+  condition: selection and not filter_legitimate_driver_install
+falsepositives:
+  - Legitimate printer-driver installation that bypasses the standard
+    \spool\drivers path. Investigate the file's signature and origin.
+level: high
+tags:
+  - attack.lateral_movement
+  - attack.privilege_escalation
+  - attack.t1068

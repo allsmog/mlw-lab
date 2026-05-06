@@ -1,0 +1,30 @@
+title: Explorer.exe loads a Stuxnet ~WTR loader DLL
+id: 1f6c43c1-58b9-4d23-9f1d-3a72e8a7e9b1
+status: experimental
+description: |
+  CVE-2010-2568 (LNK icon-load 0-day) ends with explorer.exe calling
+  LoadLibrary on a ~WTR####.tmp DLL planted by Stuxnet's USB carrier.
+  Detects that load directly. Note that the LNK trigger fires on mere
+  display of the folder, not double-click.
+references:
+  - https://learn.microsoft.com/en-us/security-updates/securitybulletins/2010/ms10-046
+  - https://www.symantec.com/content/en/us/enterprise/media/security_response/whitepapers/w32_stuxnet_dossier.pdf
+author: school project
+date: 2026/05/06
+logsource:
+  product: windows
+  service: sysmon
+  category: image_load
+detection:
+  selection:
+    Image|endswith: '\explorer.exe'
+    ImageLoaded|re: '\\~WTR\d{4}\.tmp$'
+  condition: selection
+falsepositives:
+  - None known. Filename pattern is highly specific.
+level: critical
+tags:
+  - attack.initial_access
+  - attack.execution
+  - attack.t1204.002
+  - attack.t1091

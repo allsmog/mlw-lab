@@ -31,6 +31,7 @@ A reproducible lab for studying Stuxnet across four axes:
 │   ├── 03-dynamic-analysis-setup.md
 │   ├── 04-network-isolation.md
 │   ├── 05-sample-acquisition.md
+│   ├── 06-first-session.md     # 60-minute session-1 walkthrough
 │   ├── propagation.md
 │   ├── persistence.md
 │   ├── payload.md
@@ -38,21 +39,29 @@ A reproducible lab for studying Stuxnet across four axes:
 ├── static-lab/
 │   ├── Dockerfile              # REMnux-style static analysis image
 │   ├── docker-compose.yml      # mounts samples/ read-only, no network
+│   ├── extra-ca.crt            # placeholder for proxy CA (PEM)
 │   └── tools/install-extra.sh
 ├── dynamic-lab/
-│   ├── Vagrantfile             # Win7 x86 detonation VM (host-only)
+│   ├── Vagrantfile             # detonator + target VMs (host-only)
+│   ├── fakenet/fakenet.ini     # FakeNet-NG config tuned for Stuxnet
 │   └── README.md
 ├── yara/
 │   └── stuxnet.yar             # starter detection rules
+├── sigma/                      # behavioral detection rules (Sysmon-based)
+│   └── *.yml
 ├── scripts/
-│   ├── verify-hashes.sh        # SHA-256 check against Symantec dossier
-│   └── triage.sh               # PE triage + capa + YARA + FLOSS
+│   ├── verify-hashes.sh        # SHA-256 check against an allowlist
+│   ├── triage.sh               # PE triage + capa + YARA + FLOSS
+│   └── carve-resources.py      # carve embedded blobs from the PE resource section
 ├── samples/                    # gitignored; drop authorized sample(s) here
-└── analysis/                   # your write-ups, per axis
-    ├── propagation/
-    ├── persistence/
-    ├── payload/
-    └── evasion/
+├── analysis/                   # raw outputs and rough notes, per axis
+│   ├── propagation/
+│   ├── persistence/
+│   ├── payload/
+│   └── evasion/
+└── report/                     # markdown source for the academic write-up
+    ├── 00-abstract.md  ...  08-conclusion.md
+    └── references.md
 ```
 
 ## Quick start (static analysis only)

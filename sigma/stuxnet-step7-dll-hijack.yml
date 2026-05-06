@@ -1,0 +1,34 @@
+title: Stuxnet Step7 DLL hijack indicators
+id: 9d4e5e3b-2c0e-4d7d-8a55-94b1d8d8e9b7
+status: experimental
+description: |
+  Detects the Step7 DLL hijack used by Stuxnet to interpose between the
+  Step7 IDE and PLCs. Specifically:
+    - Creation of a file named s7otbxsx.dll (the renamed-original) in
+      the Step7 install path, OR
+    - A new s7otbxdx.dll appearing alongside s7otbxsx.dll in the same
+      folder.
+  Either is anomalous on a healthy Step7 station.
+references:
+  - https://www.langner.com/wp-content/uploads/2017/03/to-kill-a-centrifuge.pdf
+  - https://www.symantec.com/content/en/us/enterprise/media/security_response/whitepapers/w32_stuxnet_dossier.pdf
+author: school project
+date: 2026/05/06
+logsource:
+  product: windows
+  service: sysmon
+  category: file_event
+detection:
+  rename_target:
+    TargetFilename|endswith: '\s7otbxsx.dll'
+  drop_hijacker:
+    TargetFilename|endswith: '\s7otbxdx.dll'
+  condition: rename_target or drop_hijacker
+falsepositives:
+  - Siemens product update or repair flow that renames the DLL. Confirm
+    by checking the publisher and the timing relative to a known update.
+level: critical
+tags:
+  - attack.defense_evasion
+  - attack.t1574.001
+  - attack.t0853  # ICS: Scripting / engineering workstation manipulation

@@ -1,0 +1,33 @@
+title: Stuxnet kernel driver service installation
+id: 5b8e0a1d-1b1f-4c45-9d7d-b3f1a6f5b0a1
+status: experimental
+description: |
+  Detects creation of a Windows service whose ImagePath points at one of
+  Stuxnet's known kernel-driver filenames (mrxnet.sys, mrxcls.sys), or at
+  any unsigned driver dropped into system32\drivers immediately before
+  the service install.
+references:
+  - https://www.symantec.com/content/en/us/enterprise/media/security_response/whitepapers/w32_stuxnet_dossier.pdf
+author: school project
+date: 2026/05/06
+logsource:
+  product: windows
+  category: process_creation
+detection:
+  selection_sc:
+    Image|endswith: '\sc.exe'
+    CommandLine|contains|all:
+      - 'create'
+      - 'binPath'
+    CommandLine|contains:
+      - 'mrxnet.sys'
+      - 'mrxcls.sys'
+  condition: selection_sc
+falsepositives:
+  - Legitimate driver installation tools that happen to reference
+    similarly-named drivers (very low prior probability for these names).
+level: high
+tags:
+  - attack.persistence
+  - attack.t1543.003
+  - attack.privilege_escalation

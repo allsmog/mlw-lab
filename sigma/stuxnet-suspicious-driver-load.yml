@@ -1,0 +1,38 @@
+title: Stuxnet driver load by filename or stolen-cert subject
+id: 8a4c2b9e-7e1c-4a44-b2f5-2a59e63e7d22
+status: experimental
+description: |
+  Detects a driver load (Sysmon event ID 6) whose image filename matches
+  one of Stuxnet's drivers OR whose Authenticode signer is one of the
+  stolen-and-revoked code-signing certs (Realtek Semiconductor Corp,
+  JMicron Technology Corp). Both certs were revoked in 2010; any driver
+  signed by them in current logs is anomalous.
+references:
+  - https://www.symantec.com/content/en/us/enterprise/media/security_response/whitepapers/w32_stuxnet_dossier.pdf
+author: school project
+date: 2026/05/06
+logsource:
+  product: windows
+  service: sysmon
+  category: driver_loaded
+detection:
+  selection_filename:
+    ImageLoaded|endswith:
+      - '\mrxnet.sys'
+      - '\mrxcls.sys'
+  selection_signer:
+    Signature|contains:
+      - 'Realtek Semiconductor Corp'
+      - 'JMicron Technology Corp'
+    SignatureStatus: 'Valid'
+  condition: selection_filename or selection_signer
+falsepositives:
+  - Legitimate hardware drivers from these vendors that have been
+    re-signed with a current cert. Validate the cert thumbprint matches
+    a current vendor cert, not the historical stolen cert.
+level: high
+tags:
+  - attack.persistence
+  - attack.defense_evasion
+  - attack.t1014
+  - attack.t1553.002
