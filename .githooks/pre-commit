@@ -50,14 +50,13 @@ while IFS= read -r -d '' file; do
         continue
     fi
 
-    # 3) Magic-byte check (only if file exists in working tree; staged-only
-    # files are pulled out of the index for inspection).
-    if [[ ! -f "$file" ]]; then
-        # Try to read from the index for files staged but not in worktree.
-        head_bytes=$(git show ":$file" 2>/dev/null | head -c 8 | xxd -p | tr -d '\n' || true)
-    else
-        head_bytes=$(head -c 8 "$file" 2>/dev/null | xxd -p | tr -d '\n' || true)
-    fi
+    # 3) Magic-byte check (always read from the staged index, so the hook
+    # works for files not yet in the worktree). Use `od` -- ubiquitous in
+    # coreutils -- instead of `xxd`, which is not always installed.
+    head_bytes=$(git show ":$file" 2>/dev/null \
+                 | od -An -tx1 -N8 \
+                 | tr -d ' \n' \
+                 || true)
     [[ -z "$head_bytes" ]] && continue
 
     for entry in "${MAGICS[@]}"; do
