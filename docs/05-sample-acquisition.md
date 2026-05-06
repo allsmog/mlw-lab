@@ -57,10 +57,11 @@ Direct browse for the Stuxnet YARA tag:
 URL: <https://github.com/ytisf/theZoo>
 
 - GitHub-hosted live-malware educational repository.
-- Stuxnet sample is in the project's directory layout (each malware
-  family gets its own folder with a binary, password file, EULA, and
-  metadata).
-- Standard "infected" password convention on the encrypted archives.
+- **Three Stuxnet variants** are present (Realtek-signed B, C-Media-signed
+  A, and a Duqu+Stuxnet bundle). Variant breakdown with paths, MD5, and
+  SHA-256 of each `.zip` is in
+  [`sample-sources/thezoo.md`](sample-sources/thezoo.md).
+- Standard `infected` password convention on the encrypted archives.
 - Repository README is blunt about risk: live malware, isolated VM
   required, no internet.
 

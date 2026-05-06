@@ -16,11 +16,22 @@ set -euo pipefail
 
 KNOWN_HASHES=(
   # ----------------------------------------------------------------------------
-  # Stuxnet 1.x components — populate from the dossier appendix.
+  # Layer 1: theZoo zip-archive hashes (verifies download integrity).
+  # Pulled from theZoo's public .sha256 metadata files. See
+  # docs/sample-sources/thezoo.md for full per-variant breakdown.
   # ----------------------------------------------------------------------------
-  # SHA-256 hashes go here. Format examples (NOT real Stuxnet hashes — replace):
+  "7dafe09a44e72c7b6522319e40c3fadcbad7a0b42d584988a1be8de818689896  theZoo: Win32.Stuxnet.B.Duqu-Realtek.zip (canonical 2010 dropper, encrypted)"
+  "dc859fe1e4f877b314b9455e1b4a1d920c325f5a3b3cd90637c6431346f77194  theZoo: Win32.Stuxnet.A.Duqu-C-Media.zip (variant A, encrypted)"
+  "152c64365b6224e065e18d9a3421adbf94eb231aa93ac242675c6c45c7929c97  theZoo: TrojanWin32.Duqu.Stuxnet.zip (Duqu+Stuxnet bundle, encrypted)"
+
+  # ----------------------------------------------------------------------------
+  # Layer 2: Dropper PE hashes from the Symantec dossier appendix.
+  # POPULATE THESE YOURSELF after reading the dossier and after unzipping.
+  # https://docs.broadcom.com/docs/security-response-w32-stuxnet-dossier-11-en
+  # ----------------------------------------------------------------------------
+  # SHA-256 hashes go here. Format examples (NOT real dropper hashes -- replace):
   #
-  # "0000000000000000000000000000000000000000000000000000000000000000  stuxnet-dropper"
+  # "0000000000000000000000000000000000000000000000000000000000000000  stuxnet-dropper (Symantec dossier App. A)"
   # "1111111111111111111111111111111111111111111111111111111111111111  ~WTR4132.tmp (LNK loader)"
   # "2222222222222222222222222222222222222222222222222222222222222222  ~WTR4141.tmp (LNK loader sibling)"
   # "3333333333333333333333333333333333333333333333333333333333333333  mrxnet.sys (rootkit)"
