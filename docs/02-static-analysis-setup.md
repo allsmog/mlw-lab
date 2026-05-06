@@ -9,6 +9,21 @@ its code.
 - Docker (Engine 24+) and Docker Compose v2.
 - ~3 GB free for the image.
 
+### If your network does TLS inspection (some universities, corporate Wi-Fi)
+
+Symptom: `pip install` fails inside the build with
+`SSL: CERTIFICATE_VERIFY_FAILED ... self-signed certificate in certificate chain`.
+
+Fix: paste your network's root CA (PEM format) into
+`static-lab/extra-ca.crt`, then `make build`. The Dockerfile detects the
+`BEGIN CERTIFICATE` marker and installs it into the image's trust store
+before pip runs. Without the marker (the default placeholder), the file is
+ignored.
+
+To get the CA cert: ask your IT department, or
+`openssl s_client -connect pypi.org:443 -showcerts < /dev/null` and copy
+the issuer cert from the chain. Don't commit it.
+
 ## Build
 
 ```bash

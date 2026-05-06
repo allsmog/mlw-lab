@@ -1,0 +1,16 @@
+# Placeholder for an optional extra CA bundle.
+#
+# If you are behind a TLS-inspecting proxy (some universities, corporate
+# networks, this sandbox), replace the contents of this file with your
+# proxy's root CA in PEM format and rebuild:
+#
+#   make build
+#
+# When the file contains no "BEGIN CERTIFICATE" marker (as shipped), the
+# Dockerfile detects that, removes the placeholder during build, and
+# proceeds with the system CA store only. No action needed for students
+# on a normal home / dorm network.
+#
+# WARNING: do not commit a real CA certificate here. Your school's
+# TLS-inspection CA is not a public secret, but it is fingerprintable and
+# revealing. Keep changes to this file local.
