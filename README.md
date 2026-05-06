@@ -54,21 +54,29 @@ A reproducible lab for studying Stuxnet across four axes:
 │   ├── verify-hashes.sh        # SHA-256 check against an allowlist
 │   ├── triage.sh               # PE triage + capa + YARA + FLOSS
 │   ├── carve-resources.py      # carve embedded blobs from the PE resource section
-│   └── mb-lookup.sh            # MalwareBazaar metadata lookup by SHA-256
+│   ├── mb-lookup.sh            # MalwareBazaar metadata lookup by SHA-256
+│   └── ghidra/                 # Ghidra headless scripts (export analysis, ...)
 ├── samples/                    # gitignored; drop authorized sample(s) here
 ├── analysis/                   # raw outputs and rough notes, per axis
 │   ├── propagation/
 │   ├── persistence/
 │   ├── payload/
 │   └── evasion/
-└── report/                     # markdown source for the academic write-up
-    ├── 00-abstract.md  ...  08-conclusion.md
-    └── references.md
+├── report/                     # markdown source for the academic write-up
+│   ├── 00-abstract.md  ...  08-conclusion.md
+│   └── references.md
+├── slides/                     # Marp slide deck for the project talk
+│   └── deck.md
+└── .githooks/                  # git pre-commit hook (blocks binary commits)
+    └── pre-commit
 ```
 
 ## Quick start (static analysis only)
 
 ```bash
+# 0. Enable the pre-commit hook so you can't accidentally commit a sample.
+make hooks
+
 # 1. Build the analysis container.
 make build
 

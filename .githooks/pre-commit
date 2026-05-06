@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# Block accidental commits of malware samples or extracted binary artifacts.
+#
+# Triggers if any staged file:
+#   * starts with a recognized executable magic (PE / ELF / Mach-O), or
+#   * has an executable extension (.exe .dll .sys .lnk .bin .dmp .vmdk .vdi), or
+#   * lives anywhere under samples/ (regardless of contents).
+#
+# Install with:    git config core.hooksPath .githooks
+
+set -euo pipefail
+
+red()   { printf "\033[31m%s\033[0m\n" "$*" >&2; }
+green() { printf "\033[32m%s\033[0m\n" "$*"; }
+
+# List of magic-byte signatures we will never let through.
+# Each entry: "hex_prefix  label"
+MAGICS=(
+  "4d5a            PE/MZ executable"
+  "7f454c46        ELF executable"
+  "feedface        Mach-O 32-bit"
+  "feedfacf        Mach-O 64-bit"
+  "cefaedfe        Mach-O 32-bit (LE)"
+  "cffaedfe        Mach-O 64-bit (LE)"
+  "cafebabe        Mach-O fat / Java class"
+  "504b0304        ZIP archive (could be JAR / packaged sample)"
+)
+
+EXEC_EXTENSIONS_RE='\.(exe|dll|sys|lnk|bin|dmp|vmdk|vdi|com|scr|cpl|ocx|drv|elf|macho|raw|img|iso)$'
+
+violations=()
+
+# Iterate over staged files (newly added or modified).
+while IFS= read -r -d '' file; do
+    [[ -z "$file" ]] && continue
+
+    # 1) samples/ is off-limits, period.
+    if [[ "$file" == samples/* ]]; then
+        # Allow only the gitkeep / README markers we ship.
+        case "$file" in
+            samples/.gitkeep|samples/README.md) ;;
+            *) violations+=("$file  →  inside samples/ (gitignored area)") ;;
+        esac
+        continue
+    fi
+
+    # 2) Extension check.
+    if [[ "$file" =~ $EXEC_EXTENSIONS_RE ]]; then
+        violations+=("$file  →  executable / binary extension")
+        continue
+    fi
+
+    # 3) Magic-byte check (only if file exists in working tree; staged-only
+    # files are pulled out of the index for inspection).
+    if [[ ! -f "$file" ]]; then
+        # Try to read from the index for files staged but not in worktree.
+        head_bytes=$(git show ":$file" 2>/dev/null | head -c 8 | xxd -p | tr -d '\n' || true)
+    else
+        head_bytes=$(head -c 8 "$file" 2>/dev/null | xxd -p | tr -d '\n' || true)
+    fi
+    [[ -z "$head_bytes" ]] && continue
+
+    for entry in "${MAGICS[@]}"; do
+        magic_hex="${entry%% *}"
+        magic_label="${entry#* }"
+        magic_label="${magic_label##*( )}"
+        if [[ "${head_bytes,,}" == "${magic_hex,,}"* ]]; then
+            violations+=("$file  →  $magic_label (magic ${magic_hex})")
+            break
+        fi
+    done
+done < <(git diff --cached --name-only --diff-filter=AM -z)
+
+if [[ ${#violations[@]} -gt 0 ]]; then
+    red ""
+    red "✗ pre-commit: refusing to commit binary / sample artifacts:"
+    red ""
+    for v in "${violations[@]}"; do red "    $v"; done
+    red ""
+    red "If a flagged file is genuinely benign and you want to commit it,"
+    red "bypass with:   git commit --no-verify"
+    red "(but think twice before doing that for anything in samples/)"
+    exit 1
+fi
+
+green "✓ pre-commit: no binary / sample artifacts staged."
+exit 0
