@@ -1,0 +1,27 @@
+# Static-analysis-only. The container has NO network and the samples directory
+# is mounted READ-ONLY. The sample is never executed.
+services:
+  static-lab:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mlw-lab/static:latest
+    container_name: mlw-lab-static
+    # Hardening:
+    network_mode: none          # no egress, no DNS, no nothing
+    cap_drop: [ALL]             # drop all Linux capabilities
+    security_opt:
+      - no-new-privileges:true
+    read_only: false            # tools need /tmp and /work writable; samples are RO below
+    tmpfs:
+      - /tmp:size=512m,mode=1777
+    # The interesting volumes:
+    volumes:
+      - ../samples:/work/samples:ro
+      - ../analysis:/work/analysis:rw
+      - ../yara:/work/yara:ro
+      - ../scripts:/work/scripts:ro
+    working_dir: /work
+    stdin_open: true
+    tty: true
+    command: /bin/bash

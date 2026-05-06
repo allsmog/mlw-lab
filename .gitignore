@@ -1,0 +1,33 @@
+# Never commit malware samples or extracted artifacts.
+samples/**
+!samples/.gitkeep
+!samples/README.md
+
+# Analysis output may contain quoted bytes / decoded strings — keep local.
+analysis/**/output/
+analysis/**/dumps/
+analysis/**/*.bin
+analysis/**/*.exe
+analysis/**/*.dll
+analysis/**/*.sys
+analysis/**/*.lnk
+analysis/**/*.dmp
+analysis/**/*.vmdk
+analysis/**/*.vdi
+
+# VM artifacts.
+.vagrant/
+*.box
+
+# Tooling caches.
+__pycache__/
+*.pyc
+.venv/
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Ghidra projects (large, regenerable).
+*.gpr
+*.rep/
