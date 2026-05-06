@@ -19,6 +19,9 @@ analysis/**/*.vdi
 .vagrant/
 *.box
 
+# Instructor approval — keep local proof of authorization, don't publish.
+docs/instructor-approval.txt
+
 # Tooling caches.
 __pycache__/
 *.pyc

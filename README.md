@@ -32,6 +32,7 @@ A reproducible lab for studying Stuxnet across four axes:
 │   ├── 04-network-isolation.md
 │   ├── 05-sample-acquisition.md
 │   ├── 06-first-session.md     # 60-minute session-1 walkthrough
+│   ├── instructor-approval-template.md
 │   ├── propagation.md
 │   ├── persistence.md
 │   ├── payload.md
@@ -52,7 +53,8 @@ A reproducible lab for studying Stuxnet across four axes:
 ├── scripts/
 │   ├── verify-hashes.sh        # SHA-256 check against an allowlist
 │   ├── triage.sh               # PE triage + capa + YARA + FLOSS
-│   └── carve-resources.py      # carve embedded blobs from the PE resource section
+│   ├── carve-resources.py      # carve embedded blobs from the PE resource section
+│   └── mb-lookup.sh            # MalwareBazaar metadata lookup by SHA-256
 ├── samples/                    # gitignored; drop authorized sample(s) here
 ├── analysis/                   # raw outputs and rough notes, per axis
 │   ├── propagation/
