@@ -67,9 +67,20 @@ A reproducible lab for studying Stuxnet across four axes:
 │   └── references.md
 ├── slides/                     # Marp slide deck for the project talk
 │   └── deck.md
+├── cloud/                      # one-shot cloud-init for a disposable analysis VM
+│   ├── stuxnet-lab.cloud-init.yml
+│   └── README.md
 └── .githooks/                  # git pre-commit hook (blocks binary commits)
     └── pre-commit
 ```
+
+## Don't want live malware on your laptop?
+
+That's the right instinct. See [`cloud/`](cloud/) for a one-shot
+`cloud-init.yml` that turns any fresh Ubuntu 24.04 droplet (Hetzner /
+DigitalOcean / Linode / Vultr / Oracle Free) into the full lab in ~5
+minutes. The malware lives on the droplet; your laptop only ever runs
+ssh. Destroy the droplet when the project is done.
 
 ## Quick start (static analysis only)
 

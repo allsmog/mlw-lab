@@ -1,0 +1,165 @@
+#cloud-config
+# ============================================================================
+# Stuxnet analysis lab — one-shot bootstrap for a fresh Ubuntu 24.04 droplet.
+#
+# Paste this entire file into the provider's "User Data" / "Cloud-Init" field
+# when creating an instance. Tested mental-model targets:
+#   DigitalOcean / Linode / Hetzner / Vultr / Oracle Cloud Free Tier.
+#
+# Before pasting:
+#   1. Replace SSH_PUBKEY_PLACEHOLDER with your `~/.ssh/id_ed25519.pub`.
+#   2. (Optional) Update LAB_REPO if you've forked this repo.
+#   3. (Optional) Update LAB_BRANCH if you've published your branch elsewhere.
+#
+# After boot (~5 min):
+#   ssh analyst@<droplet-ip>
+#   ls /home/analyst/lab-ready                        # exists when bootstrap finished
+#   cd /home/analyst/mlw-lab
+#   tail -n 20 /var/log/cloud-init-output.log         # bootstrap log
+#   make verify SAMPLE=samples/...                    # once you've pulled a sample
+#
+# Destroy when done:
+#   provider's "Destroy" / "Terminate" — the entire VM and everything on it
+#   (including any extracted malware) is gone.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Users — analyst user with sudo, key-only SSH.
+# ----------------------------------------------------------------------------
+users:
+  - name: analyst
+    gecos: "Stuxnet lab analyst"
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: [sudo, docker]
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+      - SSH_PUBKEY_PLACEHOLDER
+
+# Disable password SSH and root SSH outright.
+ssh_pwauth: false
+disable_root: true
+
+# ----------------------------------------------------------------------------
+# OS hardening + base packages.
+# ----------------------------------------------------------------------------
+package_update: true
+package_upgrade: true
+package_reboot_if_required: false
+
+packages:
+  - ca-certificates
+  - curl
+  - git
+  - gnupg
+  - make
+  - jq
+  - unzip
+  - p7zip-full
+  - ufw
+  - unattended-upgrades
+  - docker.io
+  - docker-compose-v2
+  - pandoc
+  - texlive-xetex          # optional; needed for `make report`. ~700 MB. Comment out if you'd rather install on demand.
+  - python3
+  - python3-venv
+  - python3-pip
+
+# ----------------------------------------------------------------------------
+# Configurable knobs — edit at the top.
+# ----------------------------------------------------------------------------
+write_files:
+  - path: /etc/profile.d/lab-env.sh
+    permissions: '0644'
+    content: |
+      # Edit if you've forked the repo.
+      export LAB_REPO="https://github.com/allsmog/mlw-lab.git"
+      export LAB_BRANCH="claude/stuxnet-analysis-Kxu0e"
+
+  - path: /etc/motd
+    permissions: '0644'
+    content: |
+      ============================================================
+      Stuxnet analysis lab — disposable droplet.
+
+      The repo is at /home/analyst/mlw-lab.
+      Bootstrap log: /var/log/cloud-init-output.log
+      Ready marker:  /home/analyst/lab-ready (exists when done)
+
+      Next steps:
+        cd /home/analyst/mlw-lab
+        cat docs/06-first-session.md     # the 60-min walkthrough
+
+      DESTROY THIS DROPLET when your project is done.
+      Anything on disk is gone forever — including any sample you pulled.
+      ============================================================
+
+  - path: /etc/sysctl.d/99-lab.conf
+    permissions: '0644'
+    content: |
+      # Don't forward packets between interfaces. The lab does not act as a router.
+      net.ipv4.ip_forward = 0
+      net.ipv6.conf.all.forwarding = 0
+      # Reasonable hardening defaults.
+      net.ipv4.conf.all.rp_filter = 1
+      net.ipv4.conf.all.accept_redirects = 0
+      net.ipv4.conf.all.send_redirects = 0
+      net.ipv4.conf.all.accept_source_route = 0
+
+  - path: /etc/ssh/sshd_config.d/99-lab.conf
+    permissions: '0644'
+    content: |
+      PasswordAuthentication no
+      PermitRootLogin no
+      X11Forwarding no
+      AllowUsers analyst
+      ClientAliveInterval 300
+      ClientAliveCountMax 2
+
+# ----------------------------------------------------------------------------
+# Firewall: deny everything except inbound SSH.
+# Cloud providers usually have their own perimeter firewall; ufw is belt-and-
+# suspenders. Adjust if you bring up additional listeners.
+# ----------------------------------------------------------------------------
+runcmd:
+  - [ systemctl, restart, sshd ]
+  - [ sysctl, -p, /etc/sysctl.d/99-lab.conf ]
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow OpenSSH
+  - ufw --force enable
+
+  # Enable Docker (already installed by package list above) and let analyst use it.
+  - systemctl enable --now docker
+  - usermod -aG docker analyst
+
+  # ----------------------------------------------------------------------------
+  # Clone the lab and pre-build the static-analysis container so the analyst's
+  # first session is fast.
+  # ----------------------------------------------------------------------------
+  - sudo -iu analyst bash -c '
+      set -e;
+      source /etc/profile.d/lab-env.sh;
+      cd ~;
+      git clone "$LAB_REPO" mlw-lab;
+      cd mlw-lab;
+      git checkout "$LAB_BRANCH" || git checkout -b "$LAB_BRANCH" "origin/$LAB_BRANCH";
+      git config core.hooksPath .githooks;
+      UID=$(id -u) GID=$(id -g) docker compose -f static-lab/docker-compose.yml build;
+      touch ~/lab-ready;
+    '
+
+  # Optional: enable unattended security upgrades.
+  - dpkg-reconfigure -fnoninteractive unattended-upgrades
+
+# ----------------------------------------------------------------------------
+# Final message in the cloud-init log so you can `tail` it and see green.
+# ----------------------------------------------------------------------------
+final_message: |
+  ============================================================
+  Lab bootstrap complete.
+  Repo: /home/analyst/mlw-lab
+  Static container built. Pre-commit hook enabled.
+  ssh analyst@<this-droplet-ip>
+  ============================================================
